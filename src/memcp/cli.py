@@ -119,8 +119,6 @@ def _register_session_end_hook() -> None:
         except json.JSONDecodeError:
             data = {}
 
-    hook_entry = {"hooks": [{"type": "command", "command": cmd}]}
-
     if not isinstance(data.get("hooks"), dict):
         data["hooks"] = {}
     hooks = data["hooks"]
@@ -130,14 +128,20 @@ def _register_session_end_hook() -> None:
     session_end_hooks = hooks["SessionEnd"]
     assert isinstance(session_end_hooks, list)
 
-    # Avoid duplicate registration
+    # Replace any existing memcp ingest-new entries (handles stale paths from re-installs)
+    kept: list[object] = []
     for entry in session_end_hooks:
         if isinstance(entry, dict):
-            for h in entry.get("hooks", []):
-                if isinstance(h, dict) and h.get("command") == cmd:
-                    return
+            inner = entry.get("hooks", [])
+            if isinstance(inner, list) and any(
+                isinstance(h, dict) and "memcp ingest-new" in str(h.get("command", ""))
+                for h in inner
+            ):
+                continue
+        kept.append(entry)
 
-    session_end_hooks.append(hook_entry)
+    kept.append({"hooks": [{"type": "command", "command": cmd}]})
+    hooks["SessionEnd"] = kept
     _CLAUDE_SETTINGS.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
