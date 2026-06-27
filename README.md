@@ -44,7 +44,6 @@ All data stays on your machine. No cloud, no telemetry.
 ## Requirements
 
 - macOS or Linux
-- Python 3.11+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - Claude Code
 
@@ -55,8 +54,8 @@ All data stays on your machine. No cloud, no telemetry.
 ```bash
 git clone https://github.com/nnyannya-tech/memcp.git
 cd memcp
-uv sync
-uv run memcp setup
+uv tool install .
+memcp setup
 ```
 
 Then **restart Claude Code**. That's it.
@@ -119,7 +118,12 @@ The config is optional — defaults work out of the box.
 ## Contributing
 
 ```bash
-uv sync --dev
+git clone https://github.com/nnyannya-tech/memcp.git
+cd memcp
+uv tool install .   # put memcp in PATH
+uv sync --dev       # install dev dependencies (pytest, ruff, mypy)
+memcp setup         # register MCP server and hook with Claude Code
+
 uv run pytest              # run tests
 uv run ruff check . --fix  # lint
 uv run ruff format .       # format

@@ -70,14 +70,18 @@ def _copy_config_example(storage: Path) -> None:
 
 
 def _python_and_env() -> tuple[str, dict[str, str]]:
+    """Return (python_executable, env) for registering the MCP server.
+
+    For proper installs (site-packages) env is empty.
+    For dev checkouts, PYTHONPATH must point to src/ so the module is importable.
+    """
     python = sys.executable
     import memcp
 
-    # parent.parent = src/ in dev (editable install), site-packages/ when installed
     pkg_parent = Path(memcp.__file__).parent.parent
-    if (pkg_parent / "memcp").exists():
-        return python, {"PYTHONPATH": str(pkg_parent)}
-    return python, {}
+    if "site-packages" in str(pkg_parent) or "dist-packages" in str(pkg_parent):
+        return python, {}
+    return python, {"PYTHONPATH": str(pkg_parent)}
 
 
 def _register_mcp_server() -> None:
