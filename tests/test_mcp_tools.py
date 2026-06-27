@@ -135,9 +135,7 @@ class TestSearchMemory:
 
     def test_limit_respected(self, db: sqlite3.Connection) -> None:
         for i in range(5):
-            _stored_session(
-                db, id=f"sess-{i:03}", title=f"Session {i}", content="JWT token auth"
-            )
+            _stored_session(db, id=f"sess-{i:03}", title=f"Session {i}", content="JWT token auth")
         result = server.search_memory("JWT", limit=2)
         assert result.count("Session ID") == 2
 
@@ -163,15 +161,36 @@ class TestReadSession:
             title="Mixed session",
             path="/tmp/sess-q.jsonl",
         )
+        ts = datetime(2026, 6, 23, 10, 0)
         messages = [
-            Message(id="m1", session_id="sess-q", role="user",
-                    content="Let's implement JWT authentication", timestamp=datetime(2026, 6, 23, 10, 0)),
-            Message(id="m2", session_id="sess-q", role="assistant",
-                    content="I'll use RS256 for JWT signing", timestamp=datetime(2026, 6, 23, 10, 1)),
-            Message(id="m3", session_id="sess-q", role="user",
-                    content="Now fix the database migration", timestamp=datetime(2026, 6, 23, 10, 2)),
-            Message(id="m4", session_id="sess-q", role="assistant",
-                    content="Running ALTER TABLE users", timestamp=datetime(2026, 6, 23, 10, 3)),
+            Message(
+                id="m1",
+                session_id="sess-q",
+                role="user",
+                content="Let's implement JWT authentication",
+                timestamp=ts.replace(minute=0),
+            ),
+            Message(
+                id="m2",
+                session_id="sess-q",
+                role="assistant",
+                content="I'll use RS256 for JWT signing",
+                timestamp=ts.replace(minute=1),
+            ),
+            Message(
+                id="m3",
+                session_id="sess-q",
+                role="user",
+                content="Now fix the database migration",
+                timestamp=ts.replace(minute=2),
+            ),
+            Message(
+                id="m4",
+                session_id="sess-q",
+                role="assistant",
+                content="Running ALTER TABLE users",
+                timestamp=ts.replace(minute=3),
+            ),
         ]
         repo.insert_session(db, session, messages, [])
 
@@ -190,8 +209,13 @@ class TestReadSession:
             path="/tmp/sess-head.jsonl",
         )
         messages = [
-            Message(id=f"m{i}", session_id="sess-head", role="user",
-                    content=f"message {i}", timestamp=datetime(2026, 6, 23, 10, i))
+            Message(
+                id=f"m{i}",
+                session_id="sess-head",
+                role="user",
+                content=f"message {i}",
+                timestamp=datetime(2026, 6, 23, 10, i),
+            )
             for i in range(30)
         ]
         repo.insert_session(db, session, messages, [])

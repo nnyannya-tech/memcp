@@ -93,7 +93,7 @@ class TestInsertAndGet:
 
     def test_duplicate_session_raises(self, conn: sqlite3.Connection) -> None:
         repo.insert_session(conn, _session(), [], [])
-        with pytest.raises(Exception):
+        with pytest.raises(sqlite3.IntegrityError):
             repo.insert_session(conn, _session(), [], [])
 
 

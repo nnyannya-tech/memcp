@@ -1,8 +1,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from memcp.ingest.parsers.claude import parse
 
 
@@ -155,9 +153,7 @@ class TestMessageExtraction:
         assert any(m.content == "Follow-up question" for m in messages)
 
     def test_messages_have_session_id(self, tmp_path: Path) -> None:
-        path = write_log(
-            tmp_path, [system_record(), user_record("hi")], session_id="sess-xyz"
-        )
+        path = write_log(tmp_path, [system_record(), user_record("hi")], session_id="sess-xyz")
         _, messages, _ = parse(path)
         assert all(m.session_id == "sess-xyz" for m in messages)
 
@@ -170,7 +166,14 @@ class TestToolCallExtraction:
                 system_record(),
                 assistant_record(
                     "msg-1",
-                    [{"type": "tool_use", "id": "tc-1", "name": "Bash", "input": {"command": "ls"}}],
+                    [
+                        {
+                            "type": "tool_use",
+                            "id": "tc-1",
+                            "name": "Bash",
+                            "input": {"command": "ls"},
+                        }
+                    ],
                 ),
             ],
         )

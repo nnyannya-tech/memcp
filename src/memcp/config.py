@@ -7,6 +7,27 @@ import yaml
 
 _CONFIG_PATH = Path.home() / ".agent-memory" / "config.yaml"
 
+DEFAULT_CONFIG_YAML = """\
+# Agent Memory configuration (~/.agent-memory/config.yaml)
+
+storage:
+  path: ~/.agent-memory/database.sqlite
+
+search:
+  default_limit: 5
+  max_limit: 50
+
+sources:
+  claude_code:
+    scan_dir: ~/.claude/projects
+    enabled: true
+
+  # To add Cursor support, uncomment and create src/memcp/ingest/parsers/cursor.py:
+  # cursor:
+  #   scan_dir: ~/.cursor/logs
+  #   enabled: false
+"""
+
 _DEFAULTS: dict[str, Any] = {
     "storage": {
         "path": "~/.agent-memory/database.sqlite",

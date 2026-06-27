@@ -5,9 +5,9 @@ from datetime import datetime
 import pytest
 
 from memcp.search.fts import search
+from memcp.storage import repository as repo
 from memcp.storage.db import connect, init_schema
 from memcp.storage.models import Message, Session, ToolCall
-from memcp.storage import repository as repo
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def _insert(
     id: str,
     title: str,
     messages: list[str],
-    tool_calls: list[tuple[str, str]] = [],
+    tool_calls: list[tuple[str, str]] | None = None,
     repository: str = "github.com/acme/backend",
 ) -> None:
     session = Session(
@@ -53,7 +53,7 @@ def _insert(
             arguments=args,
             result="",
         )
-        for i, (name, args) in enumerate(tool_calls)
+        for i, (name, args) in enumerate(tool_calls or [])
     ]
     repo.insert_session(conn, session, msgs, tcs)
 

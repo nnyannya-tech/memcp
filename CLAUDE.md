@@ -1,168 +1,43 @@
-# Agent Memory
+# memcp — Agent Memory
 
-Long-term memory for AI coding agents. Stores Claude Code sessions in SQLite and exposes them via MCP so agents can search their own history across sessions.
+memcp gives AI coding agents persistent memory across sessions. When a Claude Code session ends, logs are automatically ingested into a local SQLite database. Agents can then search and retrieve past work via MCP tools exposed to Claude Code.
 
-## Project Structure
+The core loop:
+1. Session ends → SessionEnd hook fires → `memcp ingest-new` scans `~/.claude/projects/` for new logs
+2. New session → agent calls `search_memory("JWT auth")` → retrieves relevant past sessions
+3. Agent calls `read_session(session_id, query="JWT")` → gets filtered messages from that session
 
-```
-memcp/
-├── src/
-│   ├── ingest/          # Log parsers (Claude parser MVP)
-│   ├── storage/         # SQLite schema and queries
-│   ├── search/          # FTS search layer
-│   └── mcp/             # MCP server and tool definitions
-├── tests/
-├── .claude/
-│   └── commands/        # Project slash commands
-├── config.yaml.example
-└── CLAUDE.md
-```
+All data stays local. No cloud, no external services.
 
-## Storage
-
-Sessions are stored at `~/.agent-memory/`:
-- `config.yaml` — user config
-- `database.sqlite` — main store
-- `logs/` — raw log archive
-
-## Data Model
-
-**Session** — `id, repository, branch, started_at, ended_at, title, path`
-**Message** — `id, session_id, role, content, timestamp`
-**ToolCall** — `id, session_id, tool_name, arguments, result`
-
-No Memory extraction table in MVP; raw sessions only.
-
-## MCP Tools
-
-| Tool | Input | Output |
-|------|-------|--------|
-| `ingest_session` | `path` | confirmation |
-| `search_memory` | `query, limit` | session list |
-| `read_session` | `session_id` | full transcript |
-| `list_recent_sessions` | `limit` | recent sessions |
-
-## Search
-
-MVP: SQLite FTS over prompt, response, tool calls, repository.
-Future: hybrid FTS + embedding.
-
-## Key Constraints
-
-- Local-only, offline-capable, OSS
-- No cloud dependencies in MVP
-- SQLite only — no external DB
-- Must handle 1000+ sessions without degradation
-- Target: setup in under 5 minutes
-
-## Tech Stack
-
-| Layer | Choice | Reason |
-|-------|--------|--------|
-| Language | Python 3.11+ | MCP SDK, parser ecosystem |
-| Package manager | uv | Fast, lockfile-based, replaces pip/venv |
-| MCP framework | `mcp` (Anthropic SDK) | Official Python MCP server SDK |
-| DB | SQLite (stdlib `sqlite3`) | Zero-dep, FTS5 built-in |
-| Config | PyYAML | Simple YAML config |
-| Testing | pytest | Standard, supports fixtures well |
-| Lint/format | Ruff | Replaces black + flake8 + isort in one tool |
-| Type checking | mypy (strict) | Catches parser/DB interface bugs early |
-
-## Development Setup
+## Development
 
 ```bash
-# Install uv if not present
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Create venv and install deps
 uv sync --dev
-
-# Run tests
-uv run pytest
-
-# Lint + format check
-uv run ruff check .
-uv run ruff format --check .
-
-# Type check
-uv run mypy src/
+uv run pytest          # must pass before committing
+uv run ruff check .    # lint
+uv run ruff format .   # format
+uv run mypy src/       # type check (strict)
 ```
 
-## Development Conventions
+All PRs must pass CI. Direct pushes to `main` are not allowed.
 
-- Each parser lives in `src/ingest/parsers/` and implements the `Parser` protocol
-- MCP server entry point: `src/mcp/server.py`
-- Type hints required on all public functions; mypy strict mode must pass
-- No mocking of SQLite — use `sqlite3.connect(":memory:")` in tests
-- One module per concern: storage queries never call MCP layer and vice versa
+## Non-obvious constraints
 
-## Testing
+**Testing**
+- Never mock SQLite. Use `sqlite3.connect(":memory:")` — real query behavior (FTS5, foreign keys) must be tested.
+- Each test file is independent; no shared global state between test modules.
 
-```
-tests/
-├── test_parser_claude.py   # Claude log parsing
-├── test_storage.py         # DB insert/query with in-memory SQLite
-├── test_search.py          # FTS queries
-└── test_mcp_tools.py       # MCP tool integration (in-memory DB)
-```
+**Module boundaries**
+- `storage/` has no knowledge of `mcp/` or `cli/`. It only exposes data access functions.
+- `search/` only imports from `storage/`. It does not call parsers or MCP tools.
+- `mcp/server.py` and `cli.py` are the only places that orchestrate across layers.
 
-Rules:
-- All tests run against in-memory SQLite (`":memory:"`) — no fixture files on disk
-- Each test file is independent; no shared global state
-- `pytest -x` must pass before any commit
-- Target: 80%+ coverage on `src/storage/` and `src/search/`
+**Types**
+- All public functions must have type hints. `uv run mypy src/` must pass in strict mode before opening a PR.
+- Parsers are plain functions, not classes: `ParseFn = Callable[[Path], tuple[Session, list[Message], list[ToolCall]]]`. See `src/memcp/ingest/parsers/base.py`.
 
-## Linting & Formatting
+## Adding a parser for a new agent
 
-Config lives in `pyproject.toml` under `[tool.ruff]`.
-
-```toml
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]  # pycodestyle, pyflakes, isort, pyupgrade, bugbear
-```
-
-Run before committing:
-```bash
-uv run ruff check . --fix
-uv run ruff format .
-```
-
-## CI (GitHub Actions)
-
-Pipeline runs on every push and PR to `main`.
-
-```yaml
-# .github/workflows/ci.yml
-jobs:
-  ci:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-      - run: uv sync --dev
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy src/
-      - run: uv run pytest --tb=short
-```
-
-PRはすべてCIグリーンを必須とする。`main`への直接pushは禁止。
-
-## MVP Scope
-
-- Claude Code log ingestion only
-- SQLite FTS search
-- 4 MCP tools: ingest_session, search_memory, read_session, list_recent_sessions
-- macOS + Linux
-
-## Out of Scope (MVP)
-
-- Cursor / Codex / Gemini parsers
-- Embedding search
-- Memory extraction (distilling facts from sessions)
-- Windows support
-- GUI
+1. Create `src/memcp/ingest/parsers/<agent>.py` that implements `ParseFn`
+2. Register it in `src/memcp/ingest/sources.py:get_sources()` with its scan directory
+3. Add the corresponding config key to `DEFAULT_CONFIG_YAML` in `src/memcp/config.py`

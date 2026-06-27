@@ -11,8 +11,8 @@ from click.testing import CliRunner
 from memcp.cli import main
 from memcp.ingest.parsers.claude import parse as claude_parse
 from memcp.ingest.sources import Source
-from memcp.storage.db import connect, init_schema
 from memcp.storage import repository as repo
+from memcp.storage.db import connect, init_schema
 
 
 @pytest.fixture()

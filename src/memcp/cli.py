@@ -41,19 +41,32 @@ def setup() -> None:
     cfg = load_config()
     storage = cfg.db_path.parent
     storage.mkdir(parents=True, exist_ok=True)
-    click.echo(f"  [1/4] Storage directory  {storage}")
+    click.echo(f"  [1/5] Storage directory  {storage}")
+
+    _copy_config_example(storage)
+    click.echo(f"  [2/5] Config template    {storage / 'config.yaml'}")
 
     conn = _open_conn()
     conn.close()
-    click.echo(f"  [2/4] Database           {cfg.db_path}")
+    click.echo(f"  [3/5] Database           {cfg.db_path}")
 
     _register_mcp_server()
-    click.echo(f"  [3/4] MCP server         {_CLAUDE_JSON}")
+    click.echo(f"  [4/5] MCP server         {_CLAUDE_JSON}")
 
     _register_session_end_hook()
-    click.echo(f"  [4/4] SessionEnd hook    {_CLAUDE_SETTINGS}")
+    click.echo(f"  [5/5] SessionEnd hook    {_CLAUDE_SETTINGS}")
 
     click.echo("\nDone. Restart Claude Code to activate.")
+    click.echo(f"To customise scan directories, edit {storage / 'config.yaml'}")
+
+
+def _copy_config_example(storage: Path) -> None:
+    dest = storage / "config.yaml"
+    if dest.exists():
+        return
+    from memcp.config import DEFAULT_CONFIG_YAML
+
+    dest.write_text(DEFAULT_CONFIG_YAML)
 
 
 def _python_and_env() -> tuple[str, dict[str, str]]:
