@@ -21,6 +21,7 @@ sources:
   claude_code:
     scan_dir: ~/.claude/projects
     enabled: true
+    # since: "2026-07-01T00:00:00+00:00"  # only ingest logs modified after this time
 
   # To add Cursor support, uncomment and create src/memcp/ingest/parsers/cursor.py:
   # cursor:
@@ -40,6 +41,7 @@ _DEFAULTS: dict[str, Any] = {
         "claude_code": {
             "scan_dir": "~/.claude/projects",
             "enabled": True,
+            "since": None,
         },
     },
 }

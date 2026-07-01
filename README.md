@@ -58,12 +58,21 @@ uv tool install .
 memcp setup
 ```
 
+`memcp setup` will ask:
+
+```
+Ingest your existing Claude Code history too? (No = only sessions from now on) [Y/n]
+```
+
+- **Yes** — the next `ingest-new` run (on your first SessionEnd) backfills every past session log found under `scan_dir`, across all your projects.
+- **No** — only sessions that end *after* this moment are ever ingested. Everything older is left alone.
+
 Then **restart Claude Code**. That's it.
 
 `memcp setup` does five things in one command:
 
 1. Creates `~/.agent-memory/` and initialises the SQLite database
-2. Writes a default `~/.agent-memory/config.yaml` you can edit
+2. Writes a default `~/.agent-memory/config.yaml` you can edit (recording the backfill cutoff above, if you declined it)
 3. Registers the MCP server in `~/.claude.json`
 4. Adds a SessionEnd hook to `~/.claude/settings.json` for automatic ingestion
 5. (Future sessions are now ingested automatically on end)
@@ -109,7 +118,10 @@ sources:
   claude_code:
     scan_dir: ~/.claude/projects   # where Claude Code stores session logs
     enabled: true
+    since: "2026-07-01T13:45:00+00:00"   # optional; only ingest logs modified after this time
 ```
+
+`since` is written automatically if you decline the backfill prompt during `memcp setup` — you don't need to set it by hand. It's an ISO-8601 timestamp; any `.jsonl` log file whose last-modified time is older than it is skipped by `ingest-new`. Remove the line (or edit it) to change what's considered "new."
 
 The config is optional — defaults work out of the box.
 

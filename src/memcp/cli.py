@@ -4,6 +4,7 @@ import json
 import shlex
 import sqlite3
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -43,7 +44,11 @@ def setup() -> None:
     storage.mkdir(parents=True, exist_ok=True)
     click.echo(f"  [1/5] Storage directory  {storage}")
 
-    _copy_config_example(storage)
+    backfill = click.confirm(
+        "  Ingest your existing Claude Code history too? (No = only sessions from now on)",
+        default=True,
+    )
+    _copy_config_example(storage, backfill=backfill)
     click.echo(f"  [2/5] Config template    {storage / 'config.yaml'}")
 
     conn = _open_conn()
@@ -60,13 +65,20 @@ def setup() -> None:
     click.echo(f"To customise scan directories, edit {storage / 'config.yaml'}")
 
 
-def _copy_config_example(storage: Path) -> None:
+def _copy_config_example(storage: Path, backfill: bool = True) -> None:
     dest = storage / "config.yaml"
     if dest.exists():
         return
     from memcp.config import DEFAULT_CONFIG_YAML
 
-    dest.write_text(DEFAULT_CONFIG_YAML)
+    content = DEFAULT_CONFIG_YAML
+    if not backfill:
+        cutoff = datetime.now(UTC).isoformat()
+        content = content.replace(
+            "    # since:",
+            f'    since: "{cutoff}"\n    # since:',
+        )
+    dest.write_text(content)
 
 
 def _python_and_env() -> tuple[str, dict[str, str]]:
@@ -169,6 +181,10 @@ def ingest_new() -> None:
         if not source.scan_dir.exists():
             continue
         for log_path in sorted(source.scan_dir.rglob("*.jsonl")):
+            if source.since is not None:
+                mtime = datetime.fromtimestamp(log_path.stat().st_mtime, tz=UTC)
+                if mtime < source.since:
+                    continue
             # Fast pre-check before parsing (valid because Claude session_id == path.stem)
             if repo.session_exists(conn, log_path.stem):
                 continue

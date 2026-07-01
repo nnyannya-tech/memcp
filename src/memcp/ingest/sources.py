@@ -7,6 +7,7 @@ To add a new agent (e.g. Cursor):
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from memcp.config import Config
@@ -19,6 +20,7 @@ class Source:
     scan_dir: Path
     parse_fn: ParseFn
     enabled: bool = True
+    since: datetime | None = None
 
 
 def get_sources(cfg: Config) -> list[Source]:
@@ -32,7 +34,11 @@ def get_sources(cfg: Config) -> list[Source]:
         from memcp.ingest.parsers.claude import parse as claude_parse
 
         scan_dir = Path(str(cc.get("scan_dir", "~/.claude/projects"))).expanduser()
-        sources.append(Source(name="claude_code", scan_dir=scan_dir, parse_fn=claude_parse))
+        since_raw = cc.get("since")
+        since = datetime.fromisoformat(str(since_raw)) if since_raw else None
+        sources.append(
+            Source(name="claude_code", scan_dir=scan_dir, parse_fn=claude_parse, since=since)
+        )
 
     # ── Future agents ─────────────────────────────────────────────────────────
     # cursor = raw.get("cursor", {})

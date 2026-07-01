@@ -7,6 +7,8 @@ The core loop:
 2. New session → agent calls `search_memory("JWT auth")` → retrieves relevant past sessions
 3. Agent calls `read_session(session_id, query="JWT")` → gets filtered messages from that session
 
+**Memory usage:** At the start of each session, or whenever the user references prior work ("last time", "earlier", "we decided", "what was that X again"), proactively call `search_memory` with relevant keywords before responding.
+
 All data stays local. No cloud, no external services.
 
 ## Development

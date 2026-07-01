@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from memcp.cli import main
+from memcp.cli import _copy_config_example, main
 from memcp.ingest.parsers.claude import parse as claude_parse
 from memcp.ingest.sources import Source
 from memcp.storage import repository as repo
@@ -130,3 +130,58 @@ class TestIngestNewCommand:
             result = runner.invoke(main, ["ingest-new"])
         assert result.exit_code == 0
         assert result.output == ""
+
+    def test_since_skips_logs_older_than_cutoff(
+        self, runner: CliRunner, db_path: Path, tmp_path: Path
+    ) -> None:
+        import os
+        import time
+        from datetime import UTC, datetime, timedelta
+
+        projects_dir = tmp_path / "projects" / "proj"
+        projects_dir.mkdir(parents=True)
+        old_log = _write_log(projects_dir, "old-001")
+        new_log = _write_log(projects_dir, "new-001")
+
+        old_time = time.time() - 3600
+        os.utime(old_log, (old_time, old_time))
+
+        cutoff = datetime.now(UTC) - timedelta(minutes=30)
+        sources = [
+            Source(
+                name="claude_code",
+                scan_dir=tmp_path / "projects",
+                parse_fn=claude_parse,
+                since=cutoff,
+            )
+        ]
+        with (
+            patch("memcp.cli._open_conn", side_effect=lambda: _fresh_conn(db_path)),
+            patch("memcp.ingest.sources.get_sources", return_value=sources),
+        ):
+            result = runner.invoke(main, ["ingest-new"])
+
+        assert result.exit_code == 0
+        assert "ingested 1" in result.output
+        with _fresh_conn(db_path) as conn:
+            assert not repo.session_exists(conn, "old-001")
+            assert repo.session_exists(conn, "new-001")
+        assert new_log.exists()
+
+
+class TestCopyConfigExample:
+    def test_backfill_true_writes_no_since_key(self, tmp_path: Path) -> None:
+        _copy_config_example(tmp_path, backfill=True)
+        content = (tmp_path / "config.yaml").read_text()
+        assert "since:" not in content.replace("# since:", "")
+
+    def test_backfill_false_writes_since_key(self, tmp_path: Path) -> None:
+        _copy_config_example(tmp_path, backfill=False)
+        content = (tmp_path / "config.yaml").read_text()
+        assert '    since: "' in content
+
+    def test_existing_config_is_left_untouched(self, tmp_path: Path) -> None:
+        dest = tmp_path / "config.yaml"
+        dest.write_text("custom: true\n")
+        _copy_config_example(tmp_path, backfill=False)
+        assert dest.read_text() == "custom: true\n"
