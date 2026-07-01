@@ -2,6 +2,8 @@
 
 Persistent memory for Claude Code. Sessions are automatically stored in a local SQLite database and exposed via MCP, so Claude can search its own history across sessions.
 
+![memcp demo](./test-memcp.gif)
+
 ---
 
 ## The problem
